@@ -1,0 +1,11 @@
+Changes
+LSF.pm
+LSF/Job.pm
+LSF/JobGroup.pm
+LSF/JobInfo.pm
+LSF/Queue.pm
+MANIFEST
+Makefile.PL
+README
+TODO
+test.pl
