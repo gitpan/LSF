@@ -1,4 +1,4 @@
-package LSF; $VERSION = '0.1';
+package LSF; $VERSION = '0.2';
 
 use Carp;
 use System2;
@@ -7,7 +7,7 @@ use System2;
 sub import {
     shift;
     my %params = @_;
-    my @modules = qw(Job JobInfo JobGroup Queue);
+    my @modules = qw(Job JobInfo JobGroup Queue JobManager);
     my @code = map { my $code = "use LSF::$_";
                      exists $params{PRINT} ? $code .= " PRINT => $params{PRINT};\n"
                                            : $code .= ";\n"
@@ -66,6 +66,7 @@ Currently this includes:
       LSF::JobInfo
       LSF::JobGroup
       LSF::Queue
+      LSF::JobManager
 
 Turning on or off the printing of LSF command line output can be controlled
 globally via the 'print' directive to the LSF module. Otherwise it can be set 

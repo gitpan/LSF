@@ -1,11 +1,3 @@
-NAME
-       LSF - load various LSF modules
-
-SYNOPSIS
-           use LSF;
-           use LSF PRINT => 1;
-
-
 DESCRIPTION
        "LSF" provides a simple mechanism to load some of the LSF
        modules at one time.  Currently this includes:
@@ -14,6 +6,7 @@ DESCRIPTION
              LSF::JobInfo
              LSF::JobGroup
              LSF::Queue
+             LSF::JobManager
 
        Turning on or off the printing of LSF command line output
        can be controlled globally via the 'print' directive to
