@@ -11,7 +11,7 @@ WriteMakefile
     VERSION_FROM    => 'LSF.pm',
     (
         $] >= 5.6
-        ? (ABSTRACT   => 'A perl API built on top of the LSF command line tools',
+        ? (ABSTRACT   => 'A perl API built on top of the Load Share Facility (LSF) command line tools from Platform Computing (platform.com)',
            AUTHOR     => 'Mark Southern (mark_southern@merck.com)')
         : ()
     ),

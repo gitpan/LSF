@@ -75,3 +75,20 @@ Revision history for Perl extension LSF.
      
      Removed a spurious 'use LSF::JobInfo' from LSF::Job that was causing it to fail in
      the 'make test' stage.
+
+0.8  Weds Oct 11 13:24:13
+
+     The LSF::JobHistory class did not correctly query LSF for completed jobs (fixed)
+
+0.9  Fri Oct 25 12:02:19
+
+	 The wait_all_children method of the LSF::JobManager class now takes a flattened hash
+     with valid keys 'depend' for a custom dependancy and 'history' to specify whether to 
+     pre-cache the job history of submitted jobs (default is false).
+     
+     Added wrappers to more of the command line tools as methods of the LSF::Job object.
+     See the LSF::Job perldoc page for a full list.
+     
+     Platform computing recently released version 5.0 of the Load Share Facility. There are
+     numerous changes, not least of which that the Job Group functionality has disappeared.
+     I will more fully describe the changes and update this API in the forthcoming 1.0 release.

@@ -1,4 +1,4 @@
-package LSF::JobHistory; $VERSION = 0.2;
+package LSF::JobHistory; $VERSION = 0.3;
 
 use strict;
 use warnings;
@@ -33,7 +33,7 @@ sub new{
         my $in;
         $in .= "$_\n" for @params;
         my ($out,$err);
-        IPC::Run::run ['xargs','bhist','-n0','-l', @$extra ], \$in,\$output[0],\$output[1];
+        IPC::Run::run ['xargs','bhist','-l', @$extra ], \$in,\$output[0],\$output[1];
         $self->post_process($?,@output);
     }else{
         my @output = $class->do_it('bhist','-n0','-l',@params);

@@ -1,6 +1,6 @@
 package LSF; 
 
-$VERSION = 0.7;
+$VERSION = 0.9;
 
 use strict;
 use warnings;
@@ -46,7 +46,7 @@ sub PrintError { shift->static('PrintError',@_) }
 sub static{
     my ($self,$var) = (shift,shift);
     my $class = ref($self) || $self;
-    my $varname = "$class::$var";
+    my $varname = "${class}::${var}";
     no strict 'refs';
     my $retval = $$varname;
     $$varname = shift if @_;

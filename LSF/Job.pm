@@ -1,4 +1,4 @@
-package LSF::Job; $VERSION = 0.6;
+package LSF::Job; $VERSION = 0.7;
 
 use strict;
 use warnings;
@@ -105,23 +105,36 @@ sub submit_pos{
     return $job;
 }
 
-sub id     { "$_[0]" }
+sub id         { "$_[0]" }
 
-sub switch { my $self = shift; $self->do_it('bswitch',@_, "$self") }
+sub bottom     { my $self = shift; $self->do_it('bbot',     @_, "$self") }
 
-sub delete { my $self = shift; $self->do_it('bdel',   @_, "$self") }
+sub checkpoint { my $self = shift; $self->do_it('bchkpnt',  @_, "$self") }
 
-sub kill   { my $self = shift; $self->do_it('bkill',  @_, "$self") }
+sub delete     { my $self = shift; $self->do_it('bdel',     @_, "$self") }
 
-sub stop   { my $self = shift; $self->do_it('bstop',  @_, "$self") }
+sub kill       { my $self = shift; $self->do_it('bkill',    @_, "$self") }
 
-sub modify { my $self = shift; $self->do_it('bmod',   @_, "$self") }
+sub migrate    { my $self = shift; $self->do_it('bmig',     @_, "$self") }
 
-sub top    { my $self = shift; $self->do_it('btop',   @_, "$self") }
+sub modify     { my $self = shift; $self->do_it('bmod',     @_, "$self") }
 
-sub bottom { my $self = shift; $self->do_it('bbot',   @_, "$self") }
+sub peek       { my $self = shift; $self->do_it('bpeek',    @_, "$self") }
 
-sub run    { my $self = shift; $self->do_it('brun',   @_, "$self") }
+sub requeue    { my $self = shift; $self->do_it('brequeue', @_, "$self") }
+
+sub restart    { my $self = shift; $self->do_it('brestart', @_, "$self") }
+
+sub resume     { my $self = shift; $self->do_it('bresume',  @_, "$self") }
+
+sub run        { my $self = shift; $self->do_it('brun',     @_, "$self") }
+
+sub stop       { my $self = shift; $self->do_it('bstop',    @_, "$self") }
+
+sub switch     { my $self = shift; $self->do_it('bswitch',  @_, "$self") }
+
+sub top        { my $self = shift; $self->do_it('btop',     @_, "$self") }
+
 
 sub history{ 
     my ($self) = @_;
@@ -181,7 +194,7 @@ C<LSF::Job> is a wrapper arround the LSF b* commands used to submit and
 manipulate jobs. for a description of how the LSF commands work see the 
 man pages of:
 
-    bsub bswitch bdel bkill bstop bmod btop bbot brun bjobs
+    bsub bbot bchkpnt bkill bmig bmod brequeue brestart bresume bstop bswitch btop
 
 =head1 INHERITS FROM
 
@@ -231,12 +244,24 @@ Arguments are the LSF parameters normally passed to 'bjobs'.
 C<id> returns the jobid of the LSF Job. This is particularly useful when
 building up job interdependencies
 
-=item $job->switch( [ARGS] )
+=item $job->history
 
-Switches the LSF job between LSF queues. See the bswitch man page.
+Returns a LSF::JobHistory object with information about the LSF job. 
+See the LSF::JobHistory perldoc page.
+
+=item $job->bottom
+
+Moves the LSF job to the bottom of its queue. See the bbot man page.
+Returns true on success, false on failure. Sets $? and $@;
+
+=item $job->checkpoint
+
+Checkpoints a checkpointable job. See the bchkpnt man page.
 Returns true on success, false on failure. Sets $? and $@;
 
 =item $job->delete( [ARGS] )
+
+*** Deprecated in LSF 5.0. Use kill instead. ***
 
 Deletes the LSF job from the system. See the bdel man page.
 Returns true on success, false on failure. Sets $? and $@;
@@ -246,9 +271,9 @@ Returns true on success, false on failure. Sets $? and $@;
 Kills the LSF job. See the bkill man page.
 Returns true on success, false on failure. Sets $? and $@;
 
-=item $job->stop
+=item $job->migrate
 
-Stops the LSF job. See the bstop man page.
+Migrates the LSF job. See the bmigrate man page.
 Returns true on success, false on failure. Sets $? and $@;
 
 =item $job->modify( [ARGS] )
@@ -260,14 +285,14 @@ Returns true on success, false on failure. Sets $? and $@;
 
 $job3->modify(-w => "done($job1) && done($job2)" );
 
-=item $job->top
+=item $job->restart
 
-Moves the LSF job to the top of its queue. See the btop man page.
+Restarts a checkpointed job. See the brestart man page.
 Returns true on success, false on failure. Sets $? and $@;
 
-=item $job->bottom
+=item $job->resume
 
-Moves the LSF job to the bottom of its queue. See the bbot man page.
+Resumes a suspended job. See the bresume man page.
 Returns true on success, false on failure. Sets $? and $@;
 
 =item $job->run
@@ -275,10 +300,20 @@ Returns true on success, false on failure. Sets $? and $@;
 Starts the LSF job now. See the brun man page.
 Returns true on success, false on failure. Sets $? and $@;
 
-=item $job->history
+=item $job->stop
 
-Returns a LSF::JobHistory object with information about the LSF job. 
-See the LSF::JobHistory perldoc page.
+Stops the LSF job. See the bstop man page.
+Returns true on success, false on failure. Sets $? and $@;
+
+=item $job->switch( [ARGS] )
+
+Switches the LSF job between LSF queues. See the bswitch man page.
+Returns true on success, false on failure. Sets $? and $@;
+
+=item $job->top
+
+Moves the LSF job to the top of its queue. See the btop man page.
+Returns true on success, false on failure. Sets $? and $@;
 
 =back
 
@@ -298,7 +333,7 @@ my simple usage. Hopefully they work in a much more perly manner.
 =head1 SEE ALSO
 
 L<LSF>,
-L<LSF::JobInfo>,
+L<LSF::JobHistory>,
 L<bsub>,
 L<bhist>,
 L<bswitch>,
