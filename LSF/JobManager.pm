@@ -1,7 +1,11 @@
-package LSF::Manager; $VERSION = 0.1;
+package LSF::Manager; $VERSION = 0.11;
 
 use LSF::Job;
 use LSF::JobInfo;
+
+sub import{
+    # nothing here yet.
+}
 
 # create a new manager object. Store default parameters that will
 # be used each time submit is called

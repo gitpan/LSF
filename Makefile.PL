@@ -3,7 +3,7 @@ use ExtUtils::MakeMaker;
 WriteMakefile
 (
     NAME => "LSF",
-    'VERSION'    => '0.2',
+    'VERSION'    => '0.21',
     (
         $] >= 5.6
         ? (ABSTRACT   => 'LSF command line tools wrapped in PERL',

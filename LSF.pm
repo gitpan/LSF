@@ -1,4 +1,4 @@
-package LSF; $VERSION = '0.2';
+package LSF; $VERSION = '0.21';
 
 use Carp;
 use System2;
@@ -69,7 +69,7 @@ Currently this includes:
       LSF::JobManager
 
 Turning on or off the printing of LSF command line output can be controlled
-globally via the 'print' directive to the LSF module. Otherwise it can be set 
+globally via the 'PRINT' directive to the LSF module. Otherwise it can be set 
 individually in each of the LSF modules by using its 'PRINT' directive or by 
 calling its 'print' class method
 
