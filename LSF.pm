@@ -1,4 +1,6 @@
-package LSF; $VERSION = 0.4;
+package LSF; 
+
+$VERSION = 0.5;
 
 use strict;
 use warnings;
@@ -6,11 +8,13 @@ use IPC::Run qw( run );
 
 sub BEGIN {
     my ($out,$err);
-    run ['lsid','-V'],\undef,\$out,\$err;
-    if($?){
-        die "Cannot find LSF executables: " , $err;
+    eval{ 
+        run ['lsid','-V'],\undef,\$out,\$err; 
+    };
+    if($@){
+        die "Cannot find LSF executables. \$PATH is $ENV{PATH}\n";
     }else{
-        die "Cannot determine LSF version" unless $err =~ /^LSF ([^,]+)/m;
+        die "Cannot determine LSF version\n" unless $err =~ /^LSF ([^,]+)/m;
         $__PACKAGE__::LSF = $1;
     }
 }
@@ -24,7 +28,7 @@ sub import {
     $p{RaiseError}  ||= 1;
     $p{PrintOutput} ||= 1;
     $p{PrintError}  ||= 1;
-    my @modules = qw(Job JobInfo JobGroup Queue JobManager);
+    my @modules = qw(Job JobHistory JobGroup Queue JobManager);
     my @code = map { "use LSF::$_ PrintOutput => $p{PrintOutput}, PrintError => $p{PrintError}, RaiseError => $p{RaiseError};\n"; 
                    } @modules;
     eval join('', @code);
@@ -150,12 +154,11 @@ my simple usage. Hopefully they work in a much more perly manner.
 
 L<LSF::Batch>,
 L<LSF::Job>,
-L<LSF::JobInfo>,
 L<LSF::JobManager>,
 L<LSF::JobGroup>,
 L<LSF::Queue>,
 L<bsub>,
-L<bjobs>,
+L<bhist>,
 L<bswitch>,
 L<bdel>,
 L<bkill>,

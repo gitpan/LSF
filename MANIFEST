@@ -2,9 +2,9 @@ Changes
 LSF.pm
 LSF/Job.pm
 LSF/JobGroup.pm
-LSF/JobInfo.pm
 LSF/Queue.pm
 LSF/JobManager.pm
+LSF/JobHistory.pm
 MANIFEST
 Makefile.PL
 README

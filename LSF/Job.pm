@@ -1,4 +1,4 @@
-package LSF::Job; $VERSION = 0.3;
+package LSF::Job; $VERSION = 0.4;
 
 use strict;
 use warnings;
@@ -6,6 +6,7 @@ use base qw( LSF );
 # sugar so that we can use job id's in strings
 use overload '""' => sub{ $_[0]->{-id} };
 use LSF::JobInfo;
+use LSF::JobHistory;
 use IPC::Run;
 
 sub import{
@@ -70,23 +71,31 @@ sub submit{
 
 sub id{ "$_[0]" }
 
-sub switch{ my $self = shift; $self->do_it('bswitch',@_, "$self") }
+sub switch { my $self = shift; $self->do_it('bswitch',@_, "$self") }
 
-sub delete{ my $self = shift; $self->do_it('bdel',   @_, "$self") }
+sub delete { my $self = shift; $self->do_it('bdel',   @_, "$self") }
 
-sub kill  { my $self = shift; $self->do_it('bkill',  @_, "$self") }
+sub kill   { my $self = shift; $self->do_it('bkill',  @_, "$self") }
 
-sub stop  { my $self = shift; $self->do_it('bstop',  @_, "$self") }
+sub stop   { my $self = shift; $self->do_it('bstop',  @_, "$self") }
 
-sub modify{ my $self = shift; $self->do_it('bmod',   @_, "$self") }
+sub modify { my $self = shift; $self->do_it('bmod',   @_, "$self") }
 
-sub top   { my $self = shift; $self->do_it('btop',   @_, "$self") }
+sub top    { my $self = shift; $self->do_it('btop',   @_, "$self") }
 
-sub bottom{ my $self = shift; $self->do_it('bbot',   @_, "$self") }
+sub bottom { my $self = shift; $self->do_it('bbot',   @_, "$self") }
 
-sub run   { my $self = shift; $self->do_it('brun',   @_, "$self") }
+sub run    { my $self = shift; $self->do_it('brun',   @_, "$self") }
 
-sub info  { my $self = shift; my @arr = LSF::JobInfo->new("$self"); $arr[0] }
+sub history{ 
+    my ($self) = @_;
+    return $self->{-cached_history} if $self->{-cached_history};
+    my ($hist) = LSF::JobHistory->new("$self"); 
+    if( defined $hist->exit_status ){
+        $self->{-cached_history} = $hist;
+    }
+    return $hist;
+}
 
 1;
 
@@ -125,6 +134,8 @@ $job2->del(-n => 1);
 $job->top();
 
 $job->bottom();
+
+$exit = $job->history->exit_status;
 
 ... etc ...
 
@@ -228,10 +239,10 @@ Returns true on success, false on failure. Sets $? and $@;
 Starts the LSF job now. See the brun man page.
 Returns true on success, false on failure. Sets $? and $@;
 
-=item $job->info
+=item $job->history
 
-Returns a LSF::JobInfo object with information about the LSF job. 
-See the LSF::JobInfo perldoc page.
+Returns a LSF::JobHistory object with information about the LSF job. 
+See the LSF::JobHistory perldoc page.
 
 =back
 
@@ -253,7 +264,7 @@ my simple usage. Hopefully they work in a much more perly manner.
 L<LSF>,
 L<LSF::JobInfo>,
 L<bsub>,
-L<bjobs>,
+L<bhist>,
 L<bswitch>,
 L<bdel>,
 L<bkill>,

@@ -19,3 +19,27 @@ Revision history for Perl extension LSF.
      Errors can now be thrown via the RaiseError directive / class method.
      The printing of the LSF command line stdout / stderr is separated out
      and controlled by the PrintOutput and PrintError directives / class methods
+
+0.5  Fri Jul 19 11:05:17
+     LSF::JobInfo is now defunct. The information obtained from the bjobs 
+     command is expunged from the LSF logs far too quickly to be reliably
+     available in a long running batch environment. Replacing it is
+     LSF::JobHistory which calls and parses the bhist command.
+
+     Removed the jobs_with_status method from the LSF::JobManager module since
+     this didn't have a good rationale behind it and the exit status is now
+     obtainable from the LSF::JobHistory object.
+
+     Added a clear method to the LSF::JobManager class so that the jobs in a 
+     job manager can be cleared and it can be reused.
+
+     Added a history method to the LSF::Job class so that an LSF::JobHistory 
+     object can be obtained for a job.
+     
+     Removed the info method from the LSF::Job class
+     
+     The LSF::JobManager->wait_all_children method now uses LSF::JobHistory to
+     pre-cache the results of the bhist command for each job. There are hugely 
+     significant performance benefits to calling a single bhist command line for
+     all jobs as opposed to once for each job.     
+     

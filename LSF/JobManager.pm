@@ -1,4 +1,4 @@
-package LSF::JobManager; $VERSION = 0.2;
+package LSF::JobManager; $VERSION = 0.3;
 
 use strict;
 use warnings;
@@ -20,7 +20,7 @@ sub import{
 sub new{
     my($type,@params) = @_;
     my $class = ref($type) || $type || "LSF::JobManager";
-    return bless {-params => \@params}, $class;
+    return bless {-params => [@params] }, $class;
 }
 
 # submit the command line to LSF. Any new parameters are used in 
@@ -58,40 +58,37 @@ sub wait_all_children{
     }
     $dependancy =~ s/\&\&$//;
     $jobs =~ s/ $//;
-    my $job = $this->submit('-I',-w => $dependancy,"echo waiting for $jobs");
+    my $job = $this->submit('-I',-w => $dependancy,"echo LSF::JobManager waiting for $jobs");
     delete $this->{-jobs}->{"$job"} if $job;
+    
+    # batch run the history of each job b/c its much quicker this way.
+    my @history = LSF::JobHistory->new(@jobs);
+    my %jobs = %{ $this->{-jobs} };
+    for my $hist (@history){
+        $jobs{$hist->id}->{-cached_history} = $hist;
+    }
     return;
 }
 
 # return an array of the parameters submitted to new
 sub params{
     my $this = shift;
-    return @{ $this->{-params } };
+    $this->{-params} = [@_] if @_;
+    return @{ $this->{-params} };
 }
 
 # return an array of the lsf jobs submitted to this point.
 sub jobs{
     my $this = shift;
-    return values %{ $this->{-jobs} };
+    my $jobs = $this->{-jobs};
+    return values %$jobs;
 }
 
-# poll LSF to find the status of the submitted jobs. It accepts an
-# array of LSF status flags (eg. DONE, EXIT, PEND etc. )
-# It would be inefficient to wait for all children with this method
-# but it can be used to determine which children exited with a non 
-# zero value
-sub jobs_with_status{
-    my ($this,@status) = @_;
-    $status[0] = 'EXIT' unless @status;
-    my @jobs = $this->jobs;
-    my @returned_jobs;
-    for my $job (@jobs){
-        my $info = $job->info;
-        if( grep { $info->{Status} eq $_ } @status ){
-            push(@returned_jobs,$job);
-        }
-    }
-    return @returned_jobs;
+# clear a job manager object of previously submitted jobs
+sub clear{
+    my $this = shift;
+    my $jobs = delete $this->{-jobs};
+    return values %$jobs;
 }
 
 # internal sub to parse a facile command line of flags 
@@ -155,18 +152,17 @@ LSF::JobManager - submit and wait for a set of LSF Jobs
     $m->wait_all_children;
     print "All children have completed!\n";
 
-    for ($m->jobs_with_status('EXIT') ){
-        print "Job with id $_ exited non zero\n";
+    for my $job ($m->jobs){
+        print STDERR "$job exited non zero\n" if $job->history->exit_status != 0;
     }
+    
+    $m->clear; # clear out the job manager to reuse.
 
 =head1 DESCRIPTION
 
 C<LSF::JobManager> provides a simple mechanism to submit a set of command lines
 to the LSF Batch system and then wait for them all to finish in a blocking
-(efficient) manner. Additionally, the LSF Batch system can be polled for jobs of
-particular status and those jobs are returned as LSF::Job objects; This is an 
-inefficient way to wait for all jobs to complete but can be used to determine 
-which jobs have a particular status.
+(efficient) manner. 
 
 =head1 INHERITS FROM
 
@@ -202,19 +198,18 @@ on success, otherwise undef is returned, $? and $@ set. See C<LSF::Job>
 
 Waits for all previously submitted LSF Jobs to complete in a blocking manner
 
-=item $manager->jobs_with_status( [ [ STATUS_FLAGS ] ] )
+=item $manager->params( [ [ PARAMS ] ] )
 
-Returns an array of jobs matching the given status flags (see LSF documentation)
-The default flag is 'EXIT', returning an array of LSF::Job objects representing
-command lines that exited non zero.
-
-=item $manager->params()
-
-Returns an array of the parameters that were passed to new
+Sets the default submission parameters.
 
 =item $manager->jobs()
 
 Returns an array of the submitted LSF::Job objects.
+
+=item $manager->clear()
+
+Empties the job array so that the manager can be reused. 
+Returns an array of the jobs removed.
 
 =head1 HISTORY
 
