@@ -14,3 +14,8 @@ Revision history for Perl extension LSF.
      Now checks the version of LSF at startup. If it is version 4 then the 
      stdout/stderr of the bsub command is swapped. Required module System2 has
      problems when called in a BEGIN block so i have switched to IPC::Run
+     
+0.4  Sun Apr 08 19:53:02
+     Errors can now be thrown via the RaiseError directive / class method.
+     The printing of the LSF command line stdout / stderr is separated out
+     and controlled by the PrintOutput and PrintError directives / class methods

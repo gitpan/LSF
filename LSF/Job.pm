@@ -1,71 +1,92 @@
-package LSF::Job; $VERSION = 0.2;
+package LSF::Job; $VERSION = 0.3;
 
+use strict;
+use warnings;
 use base qw( LSF );
 # sugar so that we can use job id's in strings
 use overload '""' => sub{ $_[0]->{-id} };
-use IPC::Run;
 use LSF::JobInfo;
+use IPC::Run;
 
 sub import{
-    my $self = shift;
-    my %params = @_;
-    $self->print($params{PRINT}) if exists $params{PRINT};
+    my ($self, %p) = @_;
+    $p{RaiseError}  ||= 1;
+    $p{PrintOutput} ||= 1;
+    $p{PrintError}  ||= 1;
+    $self->PrintOutput($p{PrintOutput}) if exists $p{PrintOutput};
+    $self->PrintError ($p{PrintError} ) if exists $p{PrintError};
+    $self->RaiseError ($p{RaiseError} ) if exists $p{RaiseError};
 }
 
 sub new{
     my($type, $id) = @_;
-    my $class = ref($type) || $type || "LSF::Job";
+    my $class = ref($type) || $type || 'LSF::Job';
     unless( $id =~ /^\d+$/ ){
-        warn "Invalid Job <$id>\n";
-        return undef;
+        my $msg = "Invalid Job <$id>";
+        die $msg if $class->RaiseError;
+        warn $msg, "\n" if $class->PrintError;
+        return;
     }
     return bless {-id => $id}, $class;
 }
 
-sub id{ $_[0]->{-id} }
+sub jobs{
+    my($self,@params) = @_;
+    my($out,$err);
+    IPC::Run::run ['bjobs',@params],\undef,\$out,\$err;
+    print $out if $out && $self->PrintOutput;
+    if($?){
+        $@ = $err;
+        if( $err =~ /No unfinished job found/i or $err =~ /is not found/i ){
+            warn $err if $err && $self->PrintError;
+            return wantarray ? () : 0;
+        }else{
+            die $err if $self->RaiseError;
+        }
+    }
+    print $err if $err && $self->PrintError;
+    my @rows = split(/\n/,$out);
+    shift @rows; # first row contains column headings
+    if( wantarray ){
+        my @return;
+        for (@rows){
+            /^(\d+)/ && push @return, $self->new($1);
+        }
+        return @return;
+    }
+    return scalar @rows;
+}
 
 sub submit{
     my ($self,@params) = @_;
-    my($out,$err);
-    if( $self->version =~ /^4/ ){
-        IPC::Run::run ['bsub',@params],\undef,\$err,\$out;
-    }else{
-        IPC::Run::run ['bsub',@params],\undef,\$out,\$err;
-    }
-    if($?){
-        $@ = $err;
-        warn $@ if $self->print;
-        return undef;
-    }
-    print $out if $self->print;
-    $out =~ /Job <(\d+)>/;
-    if( ref($self) ){
-        $self->{-id} = $1;
-        return $self;
-    }
-    else{
-        my $new = $self->new($1);
-        return $new;
-    }
+    my @output;
+    @output = $self->do_it('bsub',@params);
+    return unless @output;
+    my $idx = 0;
+    $idx = 1 if $self->LSF =~ /^4/;
+    $output[$idx] =~ /Job <(\d+)>/;
+    return $self->new($1);
 }
 
-sub switch{ my $self = shift; $self->do_it('bswitch',@_, $self->id()) }
+sub id{ "$_[0]" }
 
-sub delete{ my $self = shift; $self->do_it('bdel',   @_, $self->id()) }
+sub switch{ my $self = shift; $self->do_it('bswitch',@_, "$self") }
 
-sub kill  { my $self = shift; $self->do_it('bkill',  @_, $self->id()) }
+sub delete{ my $self = shift; $self->do_it('bdel',   @_, "$self") }
 
-sub stop  { my $self = shift; $self->do_it('bstop',  @_, $self->id()) }
+sub kill  { my $self = shift; $self->do_it('bkill',  @_, "$self") }
 
-sub modify{ my $self = shift; $self->do_it('bmod',   @_, $self->id()) }
+sub stop  { my $self = shift; $self->do_it('bstop',  @_, "$self") }
 
-sub top   { my $self = shift; $self->do_it('btop',   @_, $self->id()) }
+sub modify{ my $self = shift; $self->do_it('bmod',   @_, "$self") }
 
-sub bottom{ my $self = shift; $self->do_it('bbot',   @_, $self->id()) }
+sub top   { my $self = shift; $self->do_it('btop',   @_, "$self") }
 
-sub run   { my $self = shift; $self->do_it('brun',   @_, $self->id()) }
+sub bottom{ my $self = shift; $self->do_it('bbot',   @_, "$self") }
 
-sub info  { my @arr = LSF::JobInfo->new($_[0]->id()); $arr[0] }
+sub run   { my $self = shift; $self->do_it('brun',   @_, "$self") }
+
+sub info  { my $self = shift; my @arr = LSF::JobInfo->new("$self"); $arr[0] }
 
 1;
 
@@ -79,7 +100,7 @@ LSF::Job - create and manipulate LSF jobs
 
 use LSF::Job;
 
-use LSF::Job PRINT => 1;
+use LSF::Job RaiseError => 0, PrintError => 1, PrintOutput => 0;
 
 $job = LSF::Job->new(123456);
 
@@ -92,6 +113,8 @@ $job = LSF::Job->submit(-q => 'default'
 $job2 = LSF::Job->submit(-q => 'default'
                         ,-o => '/home/logs/output.txt'
                         ,"echo world!");
+
+@jobs = LSF::Job->jobs( -J => "/mygroup/*" );
 
 $job2->modify(-w => "done($job)" );
 
@@ -111,9 +134,13 @@ C<LSF::Job> is a wrapper arround the LSF b* commands used to submit and
 manipulate jobs. for a description of how the LSF commands work see the 
 man pages of:
 
-    bsub bswitch bdel bkill bstop bmod btop bbot
+    bsub bswitch bdel bkill bstop bmod btop bbot brun bjobs
 
-=head1 CONSTRUCTOR
+=head1 INHERITS FROM
+
+B<LSF>
+
+=head1 CONSTRUCTORS
 
 =over 4
 
@@ -138,16 +165,13 @@ Arguments are the LSF parameters normally passed to 'bsub'.
 
 Required parameter is the command line (as a string) that you want to execute.
 
-=back
+=item jobs ( [ARGS] )
 
-=head1 CLASS METHODS
+@jobs = LSF::Job->jobs( -J => "/mygroup/*" );
 
-=over
+Creates an array of LSF::Job objects corresponding to jobs that match the query
 
-=item LSF::Job->print( [ [ TRUE or FALSE ] ] )
-
-Controls whether or not the LSF command line output is printed. The default is
-OFF. When called with no arguments returns the current print status.
+Arguments are the LSF parameters normally passed to 'bjobs'.
 
 =back
 
@@ -155,50 +179,54 @@ OFF. When called with no arguments returns the current print status.
 
 =over
 
-=item $job->id
+=item $job->id() (or object in string context)
 
-C<id> returns the jobid of the LSF Job. The object used in string context also
-gives the same result leading to some interesting possibilities when building
-up job interdependencies
+C<id> returns the jobid of the LSF Job. This is particularly useful when
+building up job interdependencies
 
 =item $job->switch( [ARGS] )
 
 Switches the LSF job between LSF queues. See the bswitch man page.
-Returns 1 on success, 0 on failure. Sets $? and $@;
+Returns true on success, false on failure. Sets $? and $@;
 
 =item $job->delete( [ARGS] )
 
 Deletes the LSF job from the system. See the bdel man page.
-Returns 1 on success, 0 on failure. Sets $? and $@;
+Returns true on success, false on failure. Sets $? and $@;
 
 =item $job->kill
 
 Kills the LSF job. See the bkill man page.
-Returns 1 on success, 0 on failure. Sets $? and $@;
+Returns true on success, false on failure. Sets $? and $@;
 
 =item $job->stop
 
 Stops the LSF job. See the bstop man page.
-Returns 1 on success, 0 on failure. Sets $? and $@;
+Returns true on success, false on failure. Sets $? and $@;
 
 =item $job->modify( [ARGS] )
 
 Modifies the LSF job. See the bmod man page.
 Since the objects are overloaded to return the job id when used in string 
 context this allows easy build up of job dependancies e.g.
-Returns 1 on success, 0 on failure. Sets $? and $@;
+Returns true on success, false on failure. Sets $? and $@;
 
 $job3->modify(-w => "done($job1) && done($job2)" );
 
 =item $job->top
 
 Moves the LSF job to the top of its queue. See the btop man page.
-Returns 1 on success, 0 on failure. Sets $? and $@;
+Returns true on success, false on failure. Sets $? and $@;
 
 =item $job->bottom
 
 Moves the LSF job to the bottom of its queue. See the bbot man page.
-Returns 1 on success, 0 on failure. Sets $? and $@;
+Returns true on success, false on failure. Sets $? and $@;
+
+=item $job->run
+
+Starts the LSF job now. See the brun man page.
+Returns true on success, false on failure. Sets $? and $@;
 
 =item $job->info
 
@@ -207,29 +235,33 @@ See the LSF::JobInfo perldoc page.
 
 =back
 
+=head1 BUGS
+
+The use of the '-l' flag of the LSF command lines can be considered a bug.
+Using LSF job names with non alphabetic characters can also be considered a bug.
+Otherwise, please report them.
+
+=head1 HISTORY
+
+The B<LSF::Batch> module on cpan didn't compile easily on all platforms i wanted.
+The LSF API didn't seem very perlish either. As a quick fix I knocked these
+modules together which wrap the LSF command line interface. It was enough for
+my simple usage. Hopefully they work in a much more perly manner.
+
 =head1 SEE ALSO
 
 L<LSF>,
 L<LSF::JobInfo>,
 L<bsub>,
+L<bjobs>,
 L<bswitch>,
 L<bdel>,
 L<bkill>,
 L<bstop>,
 L<bmod>,
 L<btop>,
-L<bbot>
-
-=head1 BUGS
-
-Please report them.
-
-=head1 HISTORY
-
-The LSF::Batch module on cpan didn't compile easily on all platforms i wanted.
-The LSF API didn't seem very perlish either. As a quick fix I knocked these
-modules together which wrap the LSF command line interface. It was enough for
-my simple usage. Hopefully they work in a much more perly manner.
+L<bbot>,
+L<brun>
 
 =head1 AUTHOR
 

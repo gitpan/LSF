@@ -1,6 +1,15 @@
+NAME
+       LSF - load various LSF modules
+
+SYNOPSIS
+           use LSF;
+           use LSF RaiseError => 1, PrintError => 1, PrintOutput => 1;
+
+
 DESCRIPTION
-       "LSF" provides a simple mechanism to load some of the LSF
-       modules at one time.  Currently this includes:
+       This is the base class of the LSF suite of modules. 'use
+       LSF' will also preload all of the LSF modules at one time.
+       Currently this includes:
 
              LSF::Job
              LSF::JobInfo
@@ -8,17 +17,42 @@ DESCRIPTION
              LSF::Queue
              LSF::JobManager
 
-       Turning on or off the printing of LSF command line output
-       can be controlled globally via the 'PRINT' directive to
-       the LSF module. Otherwise it can be set individually in
-       each of the LSF modules by using its 'PRINT' directive or
-       by calling its 'print' class method
+       Two error reporting strategies are available and can be
+       set globally via the 'use LSF' statement or individually
+       in each of the LSF modules. By setting the 'RaiseError'
+       directive to true, or by using the RaiseError class
+       method, the LSF modules will die on error, otherwise they
+       will return false, setting $? to the exit value and $@ to
+       the stderr of the LSF command line. Additionally the
+       printing of LSF command line stdout and stderr can be con-
+       trolled via the 'PrintOutput' and 'PrintError' directives
+       or class methods of the same names.  Defaults are as
+       above.
 
        For more information on any of these modules, please see
        its respective documentation.
 
        NOTE: FOR THESE MODULES TO WORK IT IS ESSENTIAL THAT YOU
-       INCLUDE THE LSF COMMANDS IN YOUR PATH.
+       INCLUDE THE LSF COMMAND LINES IN YOUR PATH.
+
+CLASS METHODS
+       LSF()
+           Returns the LSF version string
+
+       RaiseError( [ [ TRUE or FALSE ] ] )
+           Controls whether LSF command line errors will be
+           thrown. The default is FALSE. When called with no
+           arguments returns the current value.
+
+       PrintError( [ [ TRUE or FALSE ] ] )
+           Controls printing to STDERR the stderr of the LSF com-
+           mand line. The default is TRUE. When called with no
+           arguments returns the current value.
+
+       PrintOutput( [ [ TRUE or FALSE ] ] )
+           Controls printing to STDOUT the stdout of the LSF com-
+           mand line. The default is FALSE. When called with no
+           arguments returns the current value.
 
 HISTORY
        The LSF::Batch module on cpan didn't compile easily on all
@@ -27,6 +61,17 @@ HISTORY
        which wrap the LSF command line interface. It was enough
        for my simple usage. Hopefully they work in a much more
        perly manner.
+
+SEE ALSO
+       the LSF::Batch manpage, the LSF::Job manpage, the
+       LSF::JobInfo manpage, the LSF::JobManager manpage, the
+       LSF::JobGroup manpage, the LSF::Queue manpage, the bsub
+       manpage, the bjobs manpage, the bswitch manpage, the bdel
+       manpage, the bkill manpage, the bstop manpage, the bmod
+       manpage, the btop manpage, the bbot manpage, the brun man-
+       page, the bqueues manpage, the bgadd manpage, the bgdel
+       manpage, the bgmod manpage, the bghold manpage, the bgrel
+       manpage
 
 AUTHOR
        Mark Southern (mark_southern@merck.com)

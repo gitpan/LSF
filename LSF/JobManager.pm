@@ -1,9 +1,18 @@
-package LSF::JobManager; $VERSION = 0.11;
+package LSF::JobManager; $VERSION = 0.2;
 
+use strict;
+use warnings;
+use base qw( LSF );
 use LSF::Job;
 
 sub import{
-    # nothing here yet.
+    my ($self, %p) = @_;
+    $p{RaiseError}  ||= 1;
+    $p{PrintOutput} ||= 1;
+    $p{PrintError}  ||= 1;
+    $self->PrintOutput($p{PrintOutput}) if exists $p{PrintOutput};
+    $self->PrintError ($p{PrintError} ) if exists $p{PrintError};
+    $self->RaiseError ($p{RaiseError} ) if exists $p{RaiseError};
 }
 
 # create a new manager object. Store default parameters that will
@@ -39,16 +48,17 @@ sub wait_all_children{
     my ($this) = @_;
     my @jobs = $this->jobs;
     unless(@jobs){
-        warn "No LSF::Job's in this LSF::Manager\n";
+        warn "No LSF::Job's in this LSF::Manager\n" if $this->PrintError;
         return;
     }
+    my ($dependancy,$jobs);
     for(@jobs){
         $dependancy .= "ended($_)&&";
         $jobs .= "$_ ";
     }
     $dependancy =~ s/\&\&$//;
     $jobs =~ s/ $//;
-    my $job = $this->submit('-I',-w=>$dependancy,"echo waiting for $jobs");
+    my $job = $this->submit('-I',-w => $dependancy,"echo waiting for $jobs");
     delete $this->{-jobs}->{"$job"} if $job;
     return;
 }
@@ -130,7 +140,7 @@ LSF::JobManager - submit and wait for a set of LSF Jobs
 
 =head1 SYNOPSIS
 
-    use LSF PRINT => 1;
+    use LSF RaiseError => 0, PrintError => 1, PrintOutput => 0;
     use LSF::JobManager;
 
     my $m = LSF::JobManager->new(-q=>'small');
@@ -157,6 +167,10 @@ to the LSF Batch system and then wait for them all to finish in a blocking
 particular status and those jobs are returned as LSF::Job objects; This is an 
 inefficient way to wait for all jobs to complete but can be used to determine 
 which jobs have a particular status.
+
+=head1 INHERITS FROM
+
+B<LSF>
 
 =head1 CONSTRUCTOR
 
@@ -204,10 +218,15 @@ Returns an array of the submitted LSF::Job objects.
 
 =head1 HISTORY
 
-The LSF::Batch module on cpan didn't compile easily on all platforms i wanted.
+The B<LSF::Batch> module on cpan didn't compile easily on all platforms i wanted.
 The LSF API didn't seem very perlish either. As a quick fix I knocked these
 modules together which wrap the LSF command line interface. It was enough for
 my simple usage. Hopefully they work in a much more perly manner.
+
+=head1 SEE ALSO
+
+L<LSF>,
+L<LSF::Job>
 
 =head1 AUTHOR
 

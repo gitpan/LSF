@@ -1,61 +1,78 @@
-package LSF; $VERSION = 0.3;
+package LSF; $VERSION = 0.4;
 
+use strict;
+use warnings;
 use IPC::Run qw( run );
 
 sub BEGIN {
     my ($out,$err);
     run ['lsid','-V'],\undef,\$out,\$err;
     if($?){
-        $@ = $err;
-        die $@; # there should be no error at this point. Can we even call the executable?
+        die "Cannot find LSF executables: " , $err;
     }else{
         die "Cannot determine LSF version" unless $err =~ /^LSF ([^,]+)/m;
-        $LSF::LSF_VERSION = $1;
+        $__PACKAGE__::LSF = $1;
     }
 }
+
+sub LSF { $__PACKAGE__::LSF }
 
 # sugar to preload all the LSF modules
 sub import {
     shift;
-    my %params = @_;
+    my %p = @_;
+    $p{RaiseError}  ||= 1;
+    $p{PrintOutput} ||= 1;
+    $p{PrintError}  ||= 1;
     my @modules = qw(Job JobInfo JobGroup Queue JobManager);
-    my @code = map { my $code = "use LSF::$_";
-                     exists $params{PRINT} ? $code .= " PRINT => $params{PRINT};\n"
-                                           : $code .= ";\n"
-                    } @modules;
-    eval join( '', @code );
+    my @code = map { "use LSF::$_ PrintOutput => $p{PrintOutput}, PrintError => $p{PrintError}, RaiseError => $p{RaiseError};\n"; 
+                   } @modules;
+    eval join('', @code);
     die $@ if $@;
 }
 
-sub version { $LSF::LSF_VERSION }
-
-# A method within each subclass to control whether LSF output/error is printed.
-sub print {
+# Class method to control whether we die on errors
+sub RaiseError {
     my $self = shift;
     my $class = ref($self) || $self;
-    my $varname = $class . '::PRINT';
+    my $varname = $class . '::RaiseError';
     no strict 'refs';
     $$varname = shift if @_;
     return $$varname;
 }
 
-# calls a  LSF command. This is the form that we use when we don't care about
-# the output of the command. Just whether or not it actually worked.
-# The usual format is the command name, followed by parameters passed through
-# to it and then the LSF job id as the last parameter
-sub do_it {
+# Class methods to control whether LSF output/error is printed.
+sub PrintOutput {
     my $self = shift;
-    my(@cmd) = @_;
+    my $class = ref($self) || $self;
+    my $varname = $class . '::PrintOutput';
+    no strict 'refs';
+    $$varname = shift if @_;
+    return $$varname;
+}
+
+sub PrintError {
+    my $self = shift;
+    my $class = ref($self) || $self;
+    my $varname = $class . '::PrintError';
+    no strict 'refs';
+    $$varname = shift if @_;
+    return $$varname;
+}
+
+sub do_it{
+    my($self,@params) = @_;
     my ($out,$err);
-    run \@cmd,\undef,\$out,\$err;
+    run \@params,\undef,\$out,\$err;
+    print $out if $out && $self->PrintOutput;
     if($?){
+        die $err if $self->RaiseError;
         $@ = $err;
-        warn $@ if $self->print;
-    }else{
-        if($out){ print $out if $self->print; }
-        else{     print $err if $self->print; }
+        warn $err if $err && $self->PrintError;
+        return undef;
     }
-    $? ? 0 : 1;
+    warn $err if $err && $self->PrintError;
+    return ($out,$err);
 }
 
 1;
@@ -69,12 +86,12 @@ LSF - load various LSF modules
 =head1 SYNOPSIS
 
     use LSF;
-    use LSF PRINT => 1;
+    use LSF RaiseError => 1, PrintError => 1, PrintOutput => 1;
 
 =head1 DESCRIPTION
 
-C<LSF> provides a simple mechanism to load some of the LSF modules at one time.
-Currently this includes:
+This is the base class of the LSF suite of modules. 'use LSF' will also 
+preload all of the LSF modules at one time. Currently this includes:
 
       LSF::Job
       LSF::JobInfo
@@ -82,23 +99,77 @@ Currently this includes:
       LSF::Queue
       LSF::JobManager
 
-Turning on or off the printing of LSF command line output can be controlled
-globally via the 'PRINT' directive to the LSF module. Otherwise it can be set 
-individually in each of the LSF modules by using its 'PRINT' directive or by 
-calling its 'print' class method
+Two error reporting strategies are available and can be set globally via the
+'use LSF' statement or individually in each of the LSF modules. By setting the
+'RaiseError' directive to true, or by using the RaiseError class method, the 
+LSF modules will die on error, otherwise they will return false, setting $? to 
+the exit value and $@ to the stderr of the LSF command line. Additionally
+the printing of LSF command line stdout and stderr can be controlled via the 
+'PrintOutput' and 'PrintError' directives or class methods of the same names.
+Defaults are as above.
 
 For more information on any of these modules, please see its respective
 documentation.
 
 NOTE: FOR THESE MODULES TO WORK IT IS ESSENTIAL THAT YOU INCLUDE THE LSF 
-COMMANDS IN YOUR PATH.
+COMMAND LINES IN YOUR PATH.
+
+=head1 CLASS METHODS
+
+=over
+
+=item LSF()
+
+Returns the LSF version string
+
+=item RaiseError( [ [ TRUE or FALSE ] ] )
+
+Controls whether LSF command line errors will be thrown. The default is
+FALSE. When called with no arguments returns the current value.
+
+=item PrintError( [ [ TRUE or FALSE ] ] )
+
+Controls printing to STDERR the stderr of the LSF command line. The default is
+TRUE. When called with no arguments returns the current value.
+
+=item PrintOutput( [ [ TRUE or FALSE ] ] )
+
+Controls printing to STDOUT the stdout of the LSF command line. The default is
+FALSE. When called with no arguments returns the current value.
+
+=back
 
 =head1 HISTORY
 
-The LSF::Batch module on cpan didn't compile easily on all platforms i wanted.
+The B<LSF::Batch> module on cpan didn't compile easily on all platforms i wanted.
 The LSF API didn't seem very perlish either. As a quick fix I knocked these
 modules together which wrap the LSF command line interface. It was enough for
 my simple usage. Hopefully they work in a much more perly manner.
+
+=head1 SEE ALSO
+
+L<LSF::Batch>,
+L<LSF::Job>,
+L<LSF::JobInfo>,
+L<LSF::JobManager>,
+L<LSF::JobGroup>,
+L<LSF::Queue>,
+L<bsub>,
+L<bjobs>,
+L<bswitch>,
+L<bdel>,
+L<bkill>,
+L<bstop>,
+L<bmod>,
+L<btop>,
+L<bbot>,
+L<brun>,
+L<bqueues>,
+L<bgadd>,
+L<bgdel>,
+L<bgmod>,
+L<bghold>,
+L<bgrel>
 
 =head1 AUTHOR
 

@@ -1,60 +1,54 @@
-package LSF::JobInfo; $VERSION = 0.2;
+package LSF::JobInfo; $VERSION = 0.3;
 
+use strict;
+use warnings;
 use base qw( LSF );
 use IPC::Run qw( run );
 use Date::Manip;
 
 sub import{
-    my $self = shift;
-    my %params = @_;
-    $self->print($params{PRINT}) if exists $params{PRINT};
+    my ($self, %p) = @_;
+    $p{RaiseError}  ||= 1;
+    $p{PrintOutput} ||= 1;
+    $p{PrintError}  ||= 1;
+    $self->PrintOutput($p{PrintOutput}) if exists $p{PrintOutput};
+    $self->PrintError ($p{PrintError} ) if exists $p{PrintError};
+    $self->RaiseError ($p{RaiseError} ) if exists $p{RaiseError};
 }
 
 sub new{
     my($self,@params) = @_;
-    my $class = ref($self) || $self || "LSF::JobInfo";
-
-    @params = grep { $_ ne '-l' } @params;
-    my($out,$err);
-    run ['bjobs','-l',@params],\undef,\$out,\$err;
-    if($?){
-        $@ = $err;
-        warn $@ if $self->print;
-        return ();
-    }else{
-        print $out if $self->print;
-
-        my @jobinfo;
-        for my $job (split(/^-+$/m,$out)){
-            my ($result) = split(/;\n\s/,$job);
-            $result =~ s/\n\s+//g;
-            my @lines = split(/\n/,$result);
-            shift @lines unless $lines[0];
-            my $return = get_params($lines[0]);
-
-            if( $job =~ /^(.+): Started on/m ){
-                $return->{Started} = UnixDate( $1, "%d-%b-%y %T" );
-            }
-
-            if( $job =~ /(.+): (Done|Exited)/ ){
-                $return->{Ended} = UnixDate( $1, "%d-%b-%y %T" );
-            }
-
-            bless $return, $class;
-            push @jobinfo,$return;
+    my $class = ref($self) || $self || 'LSF::JobInfo';
+    my @output = $class->do_it('bjobs','-l',@params);
+    return unless @output;
+    my @jobinfo;
+    for my $job (split(/^-+$/m,$output[0])){
+        my ($result) = split(/;\n\s/,$job);
+        $result =~ s/\n\s+//g;
+        my @lines = split(/\n/,$result);
+        shift @lines unless $lines[0];
+        my $return = get_params($lines[0]);
+        if( $job =~ /^(.+): Started on/m ){
+            $return->{Started} = UnixDate( $1, "%d-%b-%y %T" );
         }
-        return @jobinfo;
-    }
-    sub get_params{
-        my $line = "$_[0],";
-        my $return;
-        for(split(/>, ?/,$line)){
-            if( /^(.+) <(.+)/ ){
-                $return->{$1} = $2;
-            }
+        if( $job =~ /(.+): (Done|Exited)/ ){
+            $return->{Ended} = UnixDate( $1, "%d-%b-%y %T" );
         }
-        return $return;
+        bless $return, $class;
+        push @jobinfo,$return;
     }
+    return @jobinfo;
+}
+
+sub get_params{
+    my $line = $_[0] . ",";
+    my $return;
+    for(split(/>, ?/,$line)){
+        if( /^(.+) <(.+)/ ){
+            $return->{$1} = $2;
+        }
+    }
+    return $return;
 }
 
 1;
@@ -69,7 +63,7 @@ LSF::JobInfo - get information about LSF jobs.
 
 use LSF::JobInfo;
 
-use LSF::JobInfo PRINT => 1;
+use LSF::JobInfo RaiseError => 0, PrintError => 1, PrintOutput => 0;
 
 ( $jobinfo ) = LSF::JobInfo->new( [ARGS] );
 
@@ -91,6 +85,10 @@ C<LSF::JobInfo> is a wrapper arround the LSF 'bjobs' command used to obtain
 information about jobs. The hash keys of the object are LSF submission and 
 control parameters. See the 'bjobs' man page for more information.
 
+=head1 INHERITS FROM
+
+B<LSF>
+
 =head1 CONSTRUCTOR
 
 =over 4
@@ -99,7 +97,7 @@ control parameters. See the 'bjobs' man page for more information.
 
 ($jobinfo) = LSF::JobInfo->new(  [ARGS]
                               || [JOBID]
-                              || $job );
+                              );
 
 Creates a new C<LSF::JobInfo> object.
 
@@ -110,12 +108,6 @@ a single jobid then you will get an array with one item. If you query for a
 number of jobs with the same name or path then you will get a list.
 In scalar context returns the number of jobs that match that criteria.
 
-=head1 SEE ALSO
-
-L<LSF>,
-L<LSF::Job>,
-L<bjobs>
-
 =head1 BUGS
 
 Please report them.
@@ -124,10 +116,16 @@ non-alphanumeric characters in them. You probably shouldn't do this anyway.
 
 =head1 HISTORY
 
-The LSF::Batch module on cpan didn't compile easily on all platforms i wanted.
+The B<LSF::Batch> module on cpan didn't compile easily on all platforms i wanted.
 The LSF API didn't seem very perlish either. As a quick fix I knocked these
 modules together which wrap the LSF command line interface. It was enough for
 my simple usage. Hopefully they work in a much more perly manner.
+
+=head1 SEE ALSO
+
+L<LSF>,
+L<LSF::Job>,
+L<bjobs>
 
 =head1 AUTHOR
 

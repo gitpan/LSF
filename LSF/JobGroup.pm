@@ -1,40 +1,48 @@
-package LSF::JobGroup; $VERSION = 0.2;
+package LSF::JobGroup; $VERSION = 0.3;
 
+use strict;
+use warnings;
 use base qw( LSF );
 use overload '""' => sub{ $_[0]->{-name} };
 use LSF::Job;
 use IPC::Run qw( run );
 
 sub import{
-    my $self = shift;
-    my %params = @_;
-    $self->print($params{PRINT}) if exists $params{PRINT};
+    my ($self, %p) = @_;
+    $p{RaiseError}  ||= 1;
+    $p{PrintOutput} ||= 1;
+    $p{PrintError}  ||= 1;
+    $self->PrintOutput($p{PrintOutput}) if exists $p{PrintOutput};
+    $self->PrintError ($p{PrintError} ) if exists $p{PrintError};
+    $self->RaiseError ($p{RaiseError} ) if exists $p{RaiseError};
 }
 
 sub new{
     my($type,$name) = @_;
-    my $class = ref($type) || $type || "LSF::JobGroup";
+    my $class = ref($type) || $type || 'LSF::JobGroup';
     unless( $name ){
-        warn "Invalid group name <$name>\n";
-        return undef;
+        my $msg = "Invalid group name <$name>";
+        die $msg if $class->RaiseError;
+        warn $msg, "\n" if $class->PrintError;
+        return;
     }
     return bless { -name => $name }, $class;
 }
 
-sub exists{
+sub name { "$_[0]" }
+
+sub exists{ 
     my($self) = @_;
-    return 1 if( ! $self->add() && $@ =~ /Group exists/i );
-    $self->delete();
-    return 0;
+    my $job = eval{ LSF::Job->submit(-J => "$self/", "echo dummy") };
+    return 0 unless $job;
+    $job->delete;
+    return 1;
 }
 
-sub delete  { my $self = shift; $self->do_it('bgdel', @_,$self->{-name}) }
-
-sub add     { my $self = shift; $self->do_it('bgadd', @_,$self->{-name}) }
-
-sub hold    { my $self = shift; $self->do_it('bghold',@_,$self->{-name}) }
-
-sub release { my $self = shift; $self->do_it('bgrel', @_,$self->{-name}) }
+sub delete  { my $self = shift; $self->do_it('bgdel', @_,"$self") }
+sub add     { my $self = shift; $self->do_it('bgadd', @_,"$self") }
+sub hold    { my $self = shift; $self->do_it('bghold',@_,"$self") }
+sub release { my $self = shift; $self->do_it('bgrel', @_,"$self") }
 
 sub modify{
     my($self) = shift;
@@ -49,31 +57,14 @@ sub modify{
             }
         }
     }
-    my $retval = $self->do_it('bgmod',@_,$self->{-name});
-    $self->{-name} = $newname if $newname && not $?;
+    my $retval = $self->do_it('bgmod',@_,"$self");
+    $self->{-name} = $newname if $newname && $retval;
     return $retval;
 }
 
 sub jobs{
-    my($self,@params) = @_;
-    my($out,$err);
-    run ['bjobs','-J',$self->{-name},@params],\undef,\$out,\$err;
-    $@ = $err if $?;
-    if( $err =~ /No unfinished job found/i ){
-        return wantarray ? () : 0;
-    }elsif( $err =~ /is not found/i ){
-        return wantarray ? () : 0;
-    }
-    my @rows = split(/\n/,$out);
-    if( wantarray ){
-        my @return;
-        for (@rows){
-            /^(\d+)/ && push( @return, LSF::Job->new($1) );
-        }
-        return @return;
-    }else{
-        return ( scalar @rows - 1);
-    }
+    my $self = shift;
+    return LSF::Job->jobs(-J => "$self/", @_);
 }
 
 1;
@@ -88,7 +79,7 @@ LSF::JobGroup - manipulate LSF job groups
 
 use LSF::JobGroup;
 
-use LSF::JobGroup PRINT => 1;
+use LSF::JobGroup RaiseError => 0, PrintError => 1, PrintOutput => 0;
 
 $jobgroup = LSF::JobGroup->new( [GROUP_NAME] );
 
@@ -113,6 +104,10 @@ C<LSF::JobGroup> is a wrapper arround the LSF b* commands used to manipulate job
 groups. for a description of how the LSF commands work see the man pages of:
 
     bgadd bgdel bghold bgrel bgmod bjobs
+
+=head1 INHERITS FROM
+
+B<LSF>
 
 =head1 CONSTRUCTOR
 
@@ -145,59 +140,61 @@ existed. I couldn't find a better test to use. Answers on a postcard...
 =item $jobgroup->add
 
 Adds a job group, or group path.
-Returns 1 on success, 0 on failure. Sets $? and $@;
+Returns true on success, false on failure. Sets $? and $@;
 
 =item $jobgroup->delete
 
 Deletes a job group.
-Returns 1 on success, 0 on failure. Sets $? and $@;
+Returns true on success, false on failure. Sets $? and $@;
 
 =item $jobgroup->hold
 
 Holds a LSF job group. All pending jobs will wait until the group is released.
-Returns 1 on success, 0 on failure. Sets $? and $@;
+Returns true on success, false on failure. Sets $? and $@;
 
 =item $jobgroup->release
 
 Releases a LSF job group. Pending jobs are free to run.
-Returns 1 on success, 0 on failure. Sets $? and $@;
+Returns true on success, false on failure. Sets $? and $@;
 
 =item $job->modify([ARGS])
 
 Modifies the LSF job group. For example, changing its name or its dependancy
-expression. See the bgmod man page.
+expression. See the L<bgmod> man page.
 
-$jobgroup->modify(-w => "done($job1) && finished($job2)" );
-$jobgroup->modify(-w => "done($job1) && finished($job2)" );
+$jobgroup->modify(-w => "started($jobgroup,==0)" );
+$jobgroup->modify(-w => "ended($jobgroup,==0)" );
 
-=item $jobgroup->jobs
+=item $jobgroup->jobs([[ARGS]])
 
 Returns an list of LSF::Job objects of jobs contained within this job group.
 Remember to use the '-r' flag if you want to include jobs in sub groups.
 
 =back
 
+=head1 BUGS
+
+The use of the '-l' flag of the LSF command lines can be considered a bug.
+Using group names with non alphabetic characters can also be considered a bug.
+Otherwise please report them.
+
+=head1 HISTORY
+
+The B<LSF::Batch> module on cpan didn't compile easily on all platforms i wanted.
+The LSF API didn't seem very perlish either. As a quick fix I knocked these
+modules together which wrap the LSF command line interface. It was enough for
+my simple usage. Hopefully they work in a much more perly manner.
+
 =head1 SEE ALSO
 
 L<LSF>,
 L<LSF::Job>,
 L<bgadd>,
-L<bgrel>,
+L<bgdel>,
 L<bghold>,
 L<bgrel>,
 L<bgmod>,
 L<bjobs>
-
-=head1 BUGS
-
-Please report them.
-
-=head1 HISTORY
-
-The LSF::Batch module on cpan didn't compile easily on all platforms i wanted.
-The LSF API didn't seem very perlish either. As a quick fix I knocked these
-modules together which wrap the LSF command line interface. It was enough for
-my simple usage. Hopefully they work in a much more perly manner.
 
 =head1 AUTHOR
 
