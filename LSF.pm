@@ -1,7 +1,18 @@
-package LSF; $VERSION = '0.21';
+package LSF; $VERSION = 0.3;
 
-use Carp;
-use System2;
+use IPC::Run qw( run );
+
+sub BEGIN {
+    my ($out,$err);
+    run ['lsid','-V'],\undef,\$out,\$err;
+    if($?){
+        $@ = $err;
+        die $@; # there should be no error at this point. Can we even call the executable?
+    }else{
+        die "Cannot determine LSF version" unless $err =~ /^LSF ([^,]+)/m;
+        $LSF::LSF_VERSION = $1;
+    }
+}
 
 # sugar to preload all the LSF modules
 sub import {
@@ -13,11 +24,13 @@ sub import {
                                            : $code .= ";\n"
                     } @modules;
     eval join( '', @code );
-    croak $@ if $@;
+    die $@ if $@;
 }
 
+sub version { $LSF::LSF_VERSION }
+
 # A method within each subclass to control whether LSF output/error is printed.
-sub print{
+sub print {
     my $self = shift;
     my $class = ref($self) || $self;
     my $varname = $class . '::PRINT';
@@ -30,16 +43,17 @@ sub print{
 # the output of the command. Just whether or not it actually worked.
 # The usual format is the command name, followed by parameters passed through
 # to it and then the LSF job id as the last parameter
-sub do_it{
+sub do_it {
     my $self = shift;
-    my($cmd,@params) = @_;
-    my($OUT,$ERR) = system2($cmd,@params);
+    my(@cmd) = @_;
+    my ($out,$err);
+    run \@cmd,\undef,\$out,\$err;
     if($?){
-        $@ = $ERR;
-        carp $@ if $self->print;
+        $@ = $err;
+        warn $@ if $self->print;
     }else{
-        if($OUT){ print $OUT if $self->print; }
-        else{     print $ERR if $self->print; }
+        if($out){ print $out if $self->print; }
+        else{     print $err if $self->print; }
     }
     $? ? 0 : 1;
 }

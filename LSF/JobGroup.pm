@@ -1,25 +1,21 @@
-package LSF::JobGroup; $VERSION = "0.1";
+package LSF::JobGroup; $VERSION = 0.2;
 
-use Carp;
-use LSF;
-use LSF::Job;
-use System2;
+use base qw( LSF );
 use overload '""' => sub{ $_[0]->{-name} };
-
-our @ISA = qw( LSF );
-our $PRINT = 0;
+use LSF::Job;
+use IPC::Run qw( run );
 
 sub import{
     my $self = shift;
     my %params = @_;
-    $PRINT = $params{PRINT} if exists $params{PRINT};
+    $self->print($params{PRINT}) if exists $params{PRINT};
 }
 
 sub new{
     my($type,$name) = @_;
     my $class = ref($type) || $type || "LSF::JobGroup";
     unless( $name ){
-        carp "Invalid group name <$name>\n";
+        warn "Invalid group name <$name>\n";
         return undef;
     }
     return bless { -name => $name }, $class;
@@ -60,14 +56,15 @@ sub modify{
 
 sub jobs{
     my($self,@params) = @_;
-    my($OUT,$ERR) = system2('bjobs','-J',$self->{-name}, @params);
-    $@ = $ERR if $?;
-    if( $ERR =~ /No unfinished job found/i ){
+    my($out,$err);
+    run ['bjobs','-J',$self->{-name},@params],\undef,\$out,\$err;
+    $@ = $err if $?;
+    if( $err =~ /No unfinished job found/i ){
         return wantarray ? () : 0;
-    }elsif( $ERR =~ /is not found/i ){
+    }elsif( $err =~ /is not found/i ){
         return wantarray ? () : 0;
     }
-    my @rows = split(/\n/,$OUT);
+    my @rows = split(/\n/,$out);
     if( wantarray ){
         my @return;
         for (@rows){

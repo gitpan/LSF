@@ -1,25 +1,22 @@
-package LSF::Job; $VERSION = "0.1";
+package LSF::Job; $VERSION = 0.2;
 
-use Carp;
+use base qw( LSF );
 # sugar so that we can use job id's in strings
 use overload '""' => sub{ $_[0]->{-id} };
-use System2;
+use IPC::Run;
 use LSF::JobInfo;
-
-our @ISA = qw( LSF );
-our $PRINT = 0;
 
 sub import{
     my $self = shift;
     my %params = @_;
-    $PRINT = $params{PRINT} if exists $params{PRINT};
+    $self->print($params{PRINT}) if exists $params{PRINT};
 }
 
 sub new{
     my($type, $id) = @_;
     my $class = ref($type) || $type || "LSF::Job";
     unless( $id =~ /^\d+$/ ){
-        carp "Invalid Job <$id>\n";
+        warn "Invalid Job <$id>\n";
         return undef;
     }
     return bless {-id => $id}, $class;
@@ -29,14 +26,19 @@ sub id{ $_[0]->{-id} }
 
 sub submit{
     my ($self,@params) = @_;
-    my($ERR,$OUT) = system2('bsub',@params); # bsub swaps stdout/stderr
+    my($out,$err);
+    if( $self->version =~ /^4/ ){
+        IPC::Run::run ['bsub',@params],\undef,\$err,\$out;
+    }else{
+        IPC::Run::run ['bsub',@params],\undef,\$out,\$err;
+    }
     if($?){
-        $@ = $ERR;
-        carp $@ if $self->print;
+        $@ = $err;
+        warn $@ if $self->print;
         return undef;
     }
-    print $OUT if $self->print;
-    $OUT =~ /Job <(\d+)>/;
+    print $out if $self->print;
+    $out =~ /Job <(\d+)>/;
     if( ref($self) ){
         $self->{-id} = $1;
         return $self;
@@ -60,6 +62,8 @@ sub modify{ my $self = shift; $self->do_it('bmod',   @_, $self->id()) }
 sub top   { my $self = shift; $self->do_it('btop',   @_, $self->id()) }
 
 sub bottom{ my $self = shift; $self->do_it('bbot',   @_, $self->id()) }
+
+sub run   { my $self = shift; $self->do_it('brun',   @_, $self->id()) }
 
 sub info  { my @arr = LSF::JobInfo->new($_[0]->id()); $arr[0] }
 

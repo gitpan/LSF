@@ -1,16 +1,13 @@
-package LSF::JobInfo; $VERSION = "0.1";
+package LSF::JobInfo; $VERSION = 0.2;
 
-use Carp;
-use System2;
+use base qw( LSF );
+use IPC::Run qw( run );
 use Date::Manip;
-
-our @ISA = qw( LSF );
-our $PRINT = 0;
 
 sub import{
     my $self = shift;
     my %params = @_;
-    $PRINT = $params{PRINT} if exists $params{PRINT};
+    $self->print($params{PRINT}) if exists $params{PRINT};
 }
 
 sub new{
@@ -18,16 +15,17 @@ sub new{
     my $class = ref($self) || $self || "LSF::JobInfo";
 
     @params = grep { $_ ne '-l' } @params;
-    my($OUT,$ERR) = system2('bjobs','-l',@params);
+    my($out,$err);
+    run ['bjobs','-l',@params],\undef,\$out,\$err;
     if($?){
-        $@ = $ERR;
-        carp $@ if $self->print;
+        $@ = $err;
+        warn $@ if $self->print;
         return ();
     }else{
-        print $OUT if $self->print;
+        print $out if $self->print;
 
         my @jobinfo;
-        for my $job (split(/^-+$/m,$OUT)){
+        for my $job (split(/^-+$/m,$out)){
             my ($result) = split(/;\n\s/,$job);
             $result =~ s/\n\s+//g;
             my @lines = split(/\n/,$result);

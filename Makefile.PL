@@ -3,7 +3,7 @@ use ExtUtils::MakeMaker;
 WriteMakefile
 (
     NAME => "LSF",
-    'VERSION'    => '0.21',
+    'VERSION'    => '0.3',
     (
         $] >= 5.6
         ? (ABSTRACT   => 'LSF command line tools wrapped in PERL',
@@ -11,7 +11,7 @@ WriteMakefile
         : ()
     ),
     PREREQ_PM => { 
-                    System2     => 0.82,
+                    IPC::Run    => 0.66,
                     Date::Manip => 5.40,
                  },
     'dist' => {COMPRESS=>'gzip',SUFFIX=>'gz'},

@@ -1,30 +1,28 @@
-package LSF::Queue; $VERSION = "0.1";
+package LSF::Queue; $VERSION = 0.2;
 
-use Carp;
-use LSF;
-use System2;
-
-our @ISA = qw( LSF );
-our $PRINT = 0;
+use base qw( LSF );
+use IPC::Run qw( run );
 
 sub import{
     my $self = shift;
     my %params = @_;
-    $PRINT = $params{PRINT} if exists $params{PRINT};
+    $self->print($params{PRINT}) if exists $params{PRINT};
 }
 
 sub new{
     my($class,@params) = @_;
-    my($OUT,$ERR) = system2('bqueues','-l',@params);
+    my ($out,$err);
+    @params = grep { $_ ne '-l' } @params;
+    run ['bqueues','-l',@params],\undef,\$out,\$err;
     if($?){
-        $@ = $ERR;
-        carp $@ if $class->print;
+        $@ = $err;
+        warn $@ if $class->print;
         return ();
     }else{
-        print $OUT if $class->print;
+        print $out if $class->print;
 
         my @queue;
-        for my $text (split(/^-+$/m,$OUT)){
+        for my $text (split(/^-+$/m,$out)){
             my $queue;
             for ('QUEUE','USERS','HOSTS','RES_REQ','PREEMPTION',
                  'CHKPNTDIR','CHKPNTPERIOD','CHUNK_JOB_SIZE'){

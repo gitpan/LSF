@@ -1,7 +1,6 @@
-package LSF::Manager; $VERSION = 0.11;
+package LSF::JobManager; $VERSION = 0.11;
 
 use LSF::Job;
-use LSF::JobInfo;
 
 sub import{
     # nothing here yet.
@@ -40,7 +39,7 @@ sub wait_all_children{
     my ($this) = @_;
     my @jobs = $this->jobs;
     unless(@jobs){
-        warn "No LSF::Job's in this LSF::Manager";
+        warn "No LSF::Job's in this LSF::Manager\n";
         return;
     }
     for(@jobs){
