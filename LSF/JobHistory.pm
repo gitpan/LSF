@@ -1,4 +1,4 @@
-package LSF::JobHistory; $VERSION = 0.1;
+package LSF::JobHistory; $VERSION = 0.2;
 
 use strict;
 use warnings;
@@ -26,12 +26,22 @@ sub AUTOLOAD{
 
 sub new{
     my($self,@params) = @_;
-    @params = map { "$_" } @params;
-    my $class = ref($self) || $self || 'LSF::JobHistory';
-    my @output = $class->do_it('bhist','-n',0,'-l',@params);
+    my $class = ref($self) || $self || __PACKAGE__;
+    my @output;
+    if( ref $params[0] eq 'ARRAY' ){
+        my $extra = shift @params;
+        my $in;
+        $in .= "$_\n" for @params;
+        my ($out,$err);
+        IPC::Run::run ['xargs','bhist','-n0','-l', @$extra ], \$in,\$output[0],\$output[1];
+        $self->post_process($?,@output);
+    }else{
+        my @output = $class->do_it('bhist','-n0','-l',@params);
+    }
     return unless @output;
     my @jobhistory;
-    for my $job (split(/^-+$/m,$output[0])){ # each entry divided by ------ line
+    my @histories = split(/^-+$/m,$output[0]);
+    for my $job (@histories){ # each entry divided by ------ line
         $job =~ s/Summary of time .+//sg;
         $job =~ s/\n +//g;
         my $this = bless {}, $class;
@@ -50,7 +60,7 @@ sub new{
         if( $job =~ /Command <(.+)>\n/ ){
             $this->command("$1");
         }
-        if( $job =~ /CWD <(.+)>[,\s]/ ){
+        if( $job =~ /CWD <(.+?)>[,\s]/ ){
             ( my $cwd = $1 ) =~ s/\$(\w+)/$ENV{$1}/g;
             $this->cwd($cwd);
         }
@@ -66,6 +76,10 @@ sub new{
         push @jobhistory,$this;
     }
     return @jobhistory;
+}
+
+sub process{
+
 }
 
 1;

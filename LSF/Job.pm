@@ -1,13 +1,12 @@
-package LSF::Job; $VERSION = 0.4;
+package LSF::Job; $VERSION = 0.6;
 
 use strict;
 use warnings;
 use base qw( LSF );
 # sugar so that we can use job id's in strings
 use overload '""' => sub{ $_[0]->{-id} };
-use LSF::JobInfo;
 use LSF::JobHistory;
-use IPC::Run;
+use IPC::Run qw( start pump finish );
 
 sub import{
     my ($self, %p) = @_;
@@ -69,7 +68,44 @@ sub submit{
     return $self->new($1);
 }
 
-sub id{ "$_[0]" }
+sub submit_top{
+	my $self = shift;
+    $self->submit_pos(1,@_);
+}
+
+sub submit_bottom{
+	my $self = shift;
+    $self->submit_pos(0,@_);
+}
+
+sub submit_pos{
+    my ($self,$pos,@params) = @_;
+    my ($job,@output);
+    my $h = start( ['bsub',@params], \undef, \$output[0], \$output[1] );
+    my $idx = $self->LSF =~ /^4/;
+    pump( $h );
+    if( $output[$idx] =~ /Job <(\d+)>/ ){
+        $job = $self->new($1);
+        # do post processing, assuming that the command succeeded
+        # because we got the jobid back
+        $self->post_process(0,@output);
+        # then reset the output and error
+        $output[0] = $output[1] =  '';
+        my $re = $self->RaiseError(0);
+        if($pos){
+	        $job->top; # would throw an error if its already running
+        }else{
+        	$job->bottom;
+        }
+        $self->RaiseError($re);
+    }
+    finish($h);
+    #  print out the rest of the output and error
+    $self->post_process($?,@output);
+    return $job;
+}
+
+sub id     { "$_[0]" }
 
 sub switch { my $self = shift; $self->do_it('bswitch',@_, "$self") }
 

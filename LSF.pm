@@ -1,6 +1,6 @@
 package LSF; 
 
-$VERSION = 0.6;
+$VERSION = 0.7;
 
 use strict;
 use warnings;
@@ -36,40 +36,34 @@ sub import {
 }
 
 # Class method to control whether we die on errors
-sub RaiseError {
-    my $self = shift;
-    my $class = ref($self) || $self;
-    my $varname = $class . '::RaiseError';
-    no strict 'refs';
-    $$varname = shift if @_;
-    return $$varname;
-}
+sub RaiseError { shift->static('RaiseError',@_) }
 
 # Class methods to control whether LSF output/error is printed.
-sub PrintOutput {
-    my $self = shift;
-    my $class = ref($self) || $self;
-    my $varname = $class . '::PrintOutput';
-    no strict 'refs';
-    $$varname = shift if @_;
-    return $$varname;
-}
+sub PrintOutput { shift->static('PrintOutput',@_) }
 
-sub PrintError {
-    my $self = shift;
+sub PrintError { shift->static('PrintError',@_) }
+
+sub static{
+    my ($self,$var) = (shift,shift);
     my $class = ref($self) || $self;
-    my $varname = $class . '::PrintError';
+    my $varname = "$class::$var";
     no strict 'refs';
+    my $retval = $$varname;
     $$varname = shift if @_;
-    return $$varname;
+    return $retval;    
 }
 
 sub do_it{
     my($self,@params) = @_;
     my ($out,$err);
     run \@params,\undef,\$out,\$err;
+    return $self->post_process($?,$out,$err);
+}
+
+sub post_process{
+    my($self,$exit,$out,$err) = @_;
     print $out if $out && $self->PrintOutput;
-    if($?){
+    if($exit){
         die $err if $self->RaiseError;
         $@ = $err;
         warn $err if $err && $self->PrintError;
