@@ -43,3 +43,7 @@ Revision history for Perl extension LSF.
      significant performance benefits to calling a single bhist command line for
      all jobs as opposed to once for each job.     
      
+0.6  Thu Aug 15 12:58:10
+     Added a test for the presense of the LSF executables into Makefile.PL
+     This way both naive users and the automatic testing service on cpan 
+     won't try to 'make' the module without the executables being present.

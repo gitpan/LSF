@@ -1,6 +1,6 @@
 package LSF; 
 
-$VERSION = 0.5;
+$VERSION = 0.6;
 
 use strict;
 use warnings;
@@ -85,7 +85,7 @@ __END__
 
 =head1 NAME
 
-LSF - load various LSF modules
+LSF - A perl API built on top of the LSF command line tools
 
 =head1 SYNOPSIS
 
@@ -94,11 +94,14 @@ LSF - load various LSF modules
 
 =head1 DESCRIPTION
 
+NOTE: FOR THESE MODULES TO WORK IT IS ESSENTIAL THAT YOU INCLUDE THE LSF 
+COMMAND LINES IN YOUR PATH.
+
 This is the base class of the LSF suite of modules. 'use LSF' will also 
 preload all of the LSF modules at one time. Currently this includes:
 
       LSF::Job
-      LSF::JobInfo
+      LSF::JobHistory
       LSF::JobGroup
       LSF::Queue
       LSF::JobManager
@@ -114,9 +117,6 @@ Defaults are as above.
 
 For more information on any of these modules, please see its respective
 documentation.
-
-NOTE: FOR THESE MODULES TO WORK IT IS ESSENTIAL THAT YOU INCLUDE THE LSF 
-COMMAND LINES IN YOUR PATH.
 
 =head1 CLASS METHODS
 
@@ -154,11 +154,13 @@ my simple usage. Hopefully they work in a much more perly manner.
 
 L<LSF::Batch>,
 L<LSF::Job>,
+L<LSF::JobHistory>,
 L<LSF::JobManager>,
 L<LSF::JobGroup>,
 L<LSF::Queue>,
 L<bsub>,
 L<bhist>,
+L<bjobs>,
 L<bswitch>,
 L<bdel>,
 L<bkill>,

@@ -1,12 +1,17 @@
 use ExtUtils::MakeMaker;
 
+system('lsid','-V') && die <<"EOF";
+Cannot find the LSF executables in the PATH
+Before using this module, please install the LSF executables and ensure they are in the PATH 
+EOF
+
 WriteMakefile
 (
     NAME => 'LSF',
     VERSION_FROM    => 'LSF.pm',
     (
         $] >= 5.6
-        ? (ABSTRACT   => 'LSF command line tools wrapped in PERL',
+        ? (ABSTRACT   => 'A perl API built on top of the LSF command line tools',
            AUTHOR     => 'Mark Southern (mark_southern@merck.com)')
         : ()
     ),
