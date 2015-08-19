@@ -113,7 +113,7 @@ sub parse_flags{
     my @defaults = @_;
     my %hash;
     while(local $_ = shift @defaults){
-        if(/^(-\w)(.*)/){
+        if(/^(-\w+)(.*)/){
             my($flag,$value) = ($1,$2);
             if($value ne ''){
                 $hash{$flag} = $value;
